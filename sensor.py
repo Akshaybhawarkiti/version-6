@@ -27,22 +27,46 @@ ser = serial.Serial(
 
 
 def get_distance():
-    ser.reset_input_buffer()
 
-    ser.write(READ_DISTANCE_COMMAND)
-    ser.flush()
+    try:
 
-    response = ser.read(9)
+        ser.reset_input_buffer()
 
-    if len(response) != 9:
+        ser.write(READ_DISTANCE_COMMAND)
+        ser.flush()
+
+        response = ser.read(9)
+
+        if len(response) != 9:
+            return None
+
+        if response[0] != SLAVE_ID:
+            return None
+
+        if response[1] != 0x03:
+            return None
+
+        if response[2] != 0x04:
+            return None
+
+        raw_value = int.from_bytes(
+            response[3:7],
+            byteorder="big"
+        )
+
+        return raw_value / SCALE_FACTOR
+
+    except serial.SerialTimeoutException:
+
         return None
 
-    if response[0] != SLAVE_ID or response[1] != 0x03 or response[2] != 0x04:
+    except serial.SerialException:
+
         return None
 
-    raw_value = int.from_bytes(response[3:7], byteorder="big")
+    except Exception:
 
-    return raw_value / SCALE_FACTOR
+        return None
 
 # value = get_distance()
 # print (value)

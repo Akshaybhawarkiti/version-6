@@ -2,6 +2,8 @@ import hal
 import time
 import sensor
 import matplotlib.pyplot as plt
+import csv
+import math
 
 ProbedLength = None
 PositionData = []
@@ -12,6 +14,16 @@ Slag_Width = None
 LimitValue = None
 
 THRESHOLD = 2
+
+Layer1 = []
+Layer2 = []
+Layer3 = []
+Layer4 = []
+
+ANGLE_STEP = 0.5
+ROTATION_FEEDRATE = 1440
+ROTATION_RPM = 4
+
 
 def connect_hal():
     hal.search_connect()
@@ -70,6 +82,9 @@ def jog_detect():
     while True:
 
         value = sensor.get_distance()
+
+        if value is None:
+         continue
 
         if value > 0.00:
 
@@ -166,6 +181,10 @@ def threshold_detect():
 
         value = sensor.get_distance()
 
+        if value is None:
+                 continue
+
+        
         current_time = time.time()
 
         if current_time >= next_ui_map_time:
@@ -243,6 +262,10 @@ def threshold_detect():
 
         value = sensor.get_distance()
 
+        if value is None:
+            continue
+        
+
         current_time = time.time()
 
         if current_time >= next_ui_map_time:
@@ -299,21 +322,21 @@ def threshold_detect():
 
     print("========================================")
 
-    # ======================================================
-    # RETURN X TO ZERO
-    # ======================================================
+    # # ======================================================
+    # # RETURN X TO ZERO
+    # # ======================================================
 
-    print(">>> Moving X to absolute position 0")
+    # print(">>> Moving X to absolute position 0")
 
-    hal.publish_absolute(x=0,feedrate=1000)
+    # hal.publish_absolute(x=0,feedrate=1000)
 
-    time.sleep(1)
+    # time.sleep(1)
 
-    hal.wait_until_idle()
+    # hal.wait_until_idle()
 
-    print("========================================")
-    print("X RETURNED TO ABSOLUTE 0")
-    print("========================================")
+    # print("========================================")
+    # print("X RETURNED TO ABSOLUTE 0")
+    # print("========================================")
 
 
 def plot_ui_map():
@@ -349,12 +372,467 @@ def plot_ui_map():
 
 
 
+def data_collector():
+
+    global Layer1
+    global Layer2
+    global Layer3
+    global Layer4
+
+    print("========================================")
+    print("DATA COLLECTION")
+    print("========================================")
+
+    print(f">>> Slag End X: {Slag_End_x:.3f} mm")
+    print(f">>> Slag Width: {Slag_Width:.3f} mm")
+
+    # ======================================================
+    # MOVE X TO SLAG END POSITION
+    # ======================================================
+
+    print("========================================")
+    print("MOVING X TO SLAG END POSITION")
+    print("========================================")
+
+    print(f">>> Moving X to absolute position {Slag_End_x:.3f} mm")
+
+    hal.publish_absolute(x=Slag_End_x,feedrate=1000)
+
+    time.sleep(1)
+
+    hal.wait_until_idle()
+
+    print(">>> X reached Slag End position")
+
+    # ======================================================
+    # CALCULATE CREEP DISTANCE
+    # ======================================================
+
+    CreepDistance = Slag_Width / 4
+
+    print("========================================")
+    print("CREEP DISTANCE")
+    print("========================================")
+
+    print(f">>> Slag Width: {Slag_Width:.3f} mm")
+    print(f">>> Creep Distance: {CreepDistance:.3f} mm")
+
+    # ======================================================
+    # SENSOR SAMPLING SETTINGS
+    # ======================================================
+
+    angle_step = ANGLE_STEP
+
+    total_samples = int(360 / angle_step)
+
+    rotation_time = 60 / ROTATION_RPM
+
+    sample_interval = rotation_time / total_samples
+
+    print("========================================")
+    print("ROTATION SETTINGS")
+    print("========================================")
+
+    print(f">>> Rotation: 360 degrees")
+    print(f">>> Rotation speed: {ROTATION_RPM} RPM")
+    print(f">>> Rotation time: {rotation_time:.3f} seconds")
+    print(f">>> Angle step: {angle_step:.3f} degrees")
+    print(f">>> Samples per layer: {total_samples}")
+    print(f">>> Sensor interval: {sample_interval:.6f} seconds")
+    print(f">>> Sensor interval: {sample_interval * 1000:.3f} ms")
+
+    # ======================================================
+    # CLEAR OLD DATA
+    # ======================================================
+
+    Layer1 = []
+    Layer2 = []
+    Layer3 = []
+    Layer4 = []
+
+    # ======================================================
+    # LAYER 1
+    # ======================================================
+
+    print("========================================")
+    print("STARTING LAYER 1")
+    print("========================================")
+
+    hal.publish_gcode_hal2(x=360,feedrate=ROTATION_FEEDRATE)
+
+    start_time = time.time()
+
+    while len(Layer1) < total_samples:
+
+        value = sensor.get_distance()
+
+        if value is None:
+            continue
+
+        Layer1.append(value)
+
+        next_sample_time = start_time + (len(Layer1) * sample_interval)
+
+        while time.time() < next_sample_time:
+            time.sleep(0.001)
+
+    print(f">>> Layer 1 complete")
+    print(f">>> Values collected: {len(Layer1)}")
+
+    hal.wait_until_idle2()
+
+    # ======================================================
+    # CREEP TO LAYER 2
+    # ======================================================
+
+    print("========================================")
+    print("MOVING TO LAYER 2")
+    print("========================================")
+
+    hal.publish_gcode(x=CreepDistance,feedrate=1000)
+
+    time.sleep(1)
+
+    hal.wait_until_idle()
+
+    # ======================================================
+    # LAYER 2
+    # ======================================================
+
+    print("========================================")
+    print("STARTING LAYER 2")
+    print("========================================")
+
+    hal.publish_gcode_hal2(x=360,feedrate=ROTATION_FEEDRATE)
+
+    start_time = time.time()
+
+    while len(Layer2) < total_samples:
+
+        value = sensor.get_distance()
+
+        if value is None:
+            continue
+
+        Layer2.append(value)
+
+        next_sample_time = start_time + (
+            len(Layer2) * sample_interval
+        )
+
+        while time.time() < next_sample_time:
+            time.sleep(0.001)
+
+    print(f">>> Layer 2 complete")
+    print(f">>> Values collected: {len(Layer2)}")
+
+    hal.wait_until_idle2()
+
+    # ======================================================
+    # CREEP TO LAYER 3
+    # ======================================================
+
+    print("========================================")
+    print("MOVING TO LAYER 3")
+    print("========================================")
+
+    hal.publish_gcode(x=CreepDistance,feedrate=1000)
+
+    time.sleep(1)
+
+    hal.wait_until_idle()
+
+    # ======================================================
+    # LAYER 3
+    # ======================================================
+
+    print("========================================")
+    print("STARTING LAYER 3")
+    print("========================================")
+
+    hal.publish_gcode_hal2(x=360,feedrate=ROTATION_FEEDRATE)
+
+    start_time = time.time()
+
+    while len(Layer3) < total_samples:
+
+        value = sensor.get_distance()
+
+        if value is None:
+            continue
+
+        Layer3.append(value)
+
+        next_sample_time = start_time + (
+            len(Layer3) * sample_interval
+        )
+
+        while time.time() < next_sample_time:
+            time.sleep(0.001)
+
+    print(f">>> Layer 3 complete")
+    print(f">>> Values collected: {len(Layer3)}")
+
+    hal.wait_until_idle2()
+
+    # ======================================================
+    # CREEP TO LAYER 4
+    # ======================================================
+
+    print("========================================")
+    print("MOVING TO LAYER 4")
+    print("========================================")
+
+    hal.publish_gcode(x=CreepDistance,feedrate=1000)
+
+    time.sleep(1)
+
+    hal.wait_until_idle()
+
+    # ======================================================
+    # LAYER 4
+    # ======================================================
+
+    print("========================================")
+    print("STARTING LAYER 4")
+    print("========================================")
+
+    hal.publish_gcode_hal2(x=360,feedrate=ROTATION_FEEDRATE)
+
+    start_time = time.time()
+
+    while len(Layer4) < total_samples:
+
+        value = sensor.get_distance()
+
+        if value is None:
+            continue
+
+        Layer4.append(value)
+
+        next_sample_time = start_time + (
+            len(Layer4) * sample_interval
+        )
+
+        while time.time() < next_sample_time:
+            time.sleep(0.001)
+
+    print(f">>> Layer 4 complete")
+    print(f">>> Values collected: {len(Layer4)}")
+
+    hal.wait_until_idle2()
+
+    # ======================================================
+    # PRINT ALL LAYER DATA
+    # ======================================================
+
+    print("========================================")
+    print("ALL LAYERS COMPLETE")
+    print("========================================")
+
+    print(f">>> Layer 1 values: {len(Layer1)}")
+    print(f">>> Layer 2 values: {len(Layer2)}")
+    print(f">>> Layer 3 values: {len(Layer3)}")
+    print(f">>> Layer 4 values: {len(Layer4)}")
+
+    print("========================================")
+    print("LAYER DATA")
+    print("========================================")
+
+    for i in range(total_samples):
+
+        angle = i * angle_step
+
+        print(
+            f">>> Angle: {angle:.1f}° | "
+            f"Layer1: {Layer1[i]:.3f} | "
+            f"Layer2: {Layer2[i]:.3f} | "
+            f"Layer3: {Layer3[i]:.3f} | "
+            f"Layer4: {Layer4[i]:.3f}"
+        )
+
+    # ======================================================
+    # SAVE CSV
+    # ======================================================
+
+    print("========================================")
+    print("SAVING CSV")
+    print("========================================")
+
+    with open("UI_Map_Layers.csv", "w", newline="") as file:
+
+        writer = csv.writer(file)
+
+        writer.writerow([
+            "angle",
+            "layer1",
+            "layer2",
+            "layer3",
+            "layer4"
+        ])
+
+        for i in range(total_samples):
+
+            angle = i * angle_step
+
+            writer.writerow([
+                angle,
+                Layer1[i],
+                Layer2[i],
+                Layer3[i],
+                Layer4[i]
+            ])
+
+    print(">>> CSV saved as UI_Map_Layers.csv")
+
+    # ======================================================
+    # RETURN X TO ABSOLUTE ZERO
+    # ======================================================
+
+    print("========================================")
+    print("RETURNING X TO ABSOLUTE 0")
+    print("========================================")
+
+    hal.publish_absolute(x=0,feedrate=1000)
+
+    time.sleep(1)
+
+    hal.wait_until_idle()
+
+    print("========================================")
+    print("DATA COLLECTION COMPLETE")
+    print("X RETURNED TO ABSOLUTE 0")
+    print("========================================")
+
+
+def plot_heat_gradient_3d():
+
+    global Layer1
+    global Layer2
+    global Layer3
+    global Layer4
+
+    print("========================================")
+    print("PLOTTING HEAT / GRADIENT MAP")
+    print("========================================")
+
+    if len(Layer1) == 0:
+        print(">>> Layer1 is empty")
+        return
+
+    # ======================================================
+    # CREATE DATA MATRIX
+    # ======================================================
+
+    layers = [
+        Layer1,
+        Layer2,
+        Layer3,
+        Layer4
+    ]
+
+    layer_names = [
+        "Layer 1",
+        "Layer 2",
+        "Layer 3",
+        "Layer 4"
+    ]
+
+    angles = []
+
+    for i in range(len(Layer1)):
+        angles.append(i * ANGLE_STEP)
+
+    # ======================================================
+    # HEAT / GRADIENT MAP
+    # ======================================================
+
+    print(">>> Creating heat / gradient map")
+
+    plt.figure()
+
+    plt.imshow(
+        layers,
+        aspect="auto",
+        extent=[
+            0,
+            360,
+            4,
+            1
+        ],
+        origin="upper"
+    )
+
+    plt.colorbar(label="Sensor Value")
+
+    plt.xlabel("Rotation Angle (degrees)")
+    plt.ylabel("Layer")
+    plt.title("Cylinder Sensor Heat / Gradient Map")
+
+    plt.yticks(
+        [1, 2, 3, 4],
+        layer_names
+    )
+
+    plt.xticks(
+        range(0, 361, 30)
+    )
+
+    plt.show()
+
+    # ======================================================
+    # 3D MAP
+    # ======================================================
+
+    print(">>> Creating 3D sensor map")
+
+    fig = plt.figure()
+
+    ax = fig.add_subplot(
+        111,
+        projection="3d"
+    )
+
+    for layer_index, layer_data in enumerate(layers):
+
+        x_values = angles
+
+        y_values = [
+            layer_index + 1
+        ] * len(layer_data)
+
+        z_values = layer_data
+
+        ax.plot(
+            x_values,
+            y_values,
+            z_values
+        )
+
+    ax.set_xlabel("Rotation Angle (degrees)")
+    ax.set_ylabel("Layer")
+    ax.set_zlabel("Sensor Value")
+
+    ax.set_title("3D Cylinder Sensor Map")
+
+    ax.set_yticks(
+        [1, 2, 3, 4]
+    )
+
+    plt.show()
+
+    print("========================================")
+    print("HEAT / GRADIENT MAP COMPLETE")
+    print("3D MAP COMPLETE")
+    print("========================================")
+
+
 connect_hal()
 move_center()
 jog_detect()
 PL_detect()
 threshold_detect()
 plot_ui_map()
-
-
+data_collector()
+plot_heat_gradient_3d()
 print(f">>> probed length = {ProbedLength}")

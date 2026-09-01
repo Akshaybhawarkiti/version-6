@@ -266,7 +266,7 @@ def connect2():
     print(f"Connecting to {SERIAL_PORT2}...")
 
     ser2 = serial.Serial(
-        port="COM3",
+        port=SERIAL_PORT2,
         baudrate=115200,
         timeout=1 
     )
@@ -376,7 +376,7 @@ def wait_until_idle2():
     global ser2
 
     # Clear anything already waiting in the serial buffer
-    ser.reset_input_buffer()
+    ser2.reset_input_buffer()
 
     while True:
         ser2.write(b"?\n")
