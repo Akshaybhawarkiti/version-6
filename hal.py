@@ -297,6 +297,9 @@ def save_position(x, y, z):
 def wait_until_idle():
     global ser
 
+    # Clear anything already waiting in the serial buffer
+    ser.reset_input_buffer()
+
     while True:
         ser.write(b"?\n")
 
@@ -347,6 +350,9 @@ def wait_until_idle():
 def only_idle():
     global ser
 
+    # Clear anything already waiting in the serial buffer
+    ser.reset_input_buffer()
+
     while True:
         ser.write(b"?\n")
 
@@ -368,6 +374,9 @@ def only_idle():
 
 def wait_until_idle2():
     global ser2
+
+    # Clear anything already waiting in the serial buffer
+    ser.reset_input_buffer()
 
     while True:
         ser2.write(b"?\n")
@@ -566,7 +575,7 @@ def reset():
 
 
 def reset2():
-    global ser
+    global ser2
 
     if ser2 is None:
         print("Reset requested, but not connected.")

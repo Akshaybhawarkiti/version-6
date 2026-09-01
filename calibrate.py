@@ -34,11 +34,12 @@ def move_center():
 
     print(">>> Moving Y axis 370 mm...")
     sensor_center = 372 - 75
+
     hal.publish_gcode(y=sensor_center,feedrate=1000)
     time.sleep(1)
     print(">>> Waiting for Y movement to complete...")
     hal.wait_until_idle()
-
+   
     print("========================================")
     print("CENTER POSITION REACHED")
     print(f"Y position moved {sensor_center} mm")
@@ -124,8 +125,11 @@ def PL_detect():
 
 
 connect_hal()
+time.sleep(1)
 move_center()
+time.sleep(1)
 jog_detect()
+time.sleep(1)
 PL_detect()
 
 print(f">>> probed lenght = {ProbedLength}")
