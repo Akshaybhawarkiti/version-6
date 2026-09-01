@@ -2,6 +2,8 @@ import hal
 import time
 import sensor
 
+ProbedLength = None
+
 def connect_hal():
     hal.search_connect()
     hal.reset()
@@ -15,6 +17,7 @@ def connect_hal():
 
 def move_center():
 
+    print(f">>> probed lenght = {ProbedLength}")
     print("========================================")
     print("MOVING TO CENTER")
     print("========================================")
@@ -45,6 +48,7 @@ def move_center():
 
 def jog_detect():
 
+    print(f">>> probed lenght = {ProbedLength}")
     print("========================================")
     print("MOVING X UNTIL SENSOR DETECTS")
     print("========================================")
@@ -70,31 +74,14 @@ def jog_detect():
 
         time.sleep(0.01)
 
-    print(">>> X stopped at current position")
-
-    print(">>> Waiting 10 seconds...")
-
-    CurrentX = hal.get_current_x_position()
-    
-    print("========================================")
-    print(f"X Position is {CurrentX}")
-    print("========================================")
-
-    time.sleep(10)
-
-    print(">>> Moving X to absolute position 0")
-
-    hal.publish_absolute(x=0,feedrate=1000)
-    time.sleep(1) 
-    hal.wait_until_idle()
-
-    print("========================================")
-    print("X RETURNED TO ABSOLUTE 0")
-    print("========================================")
+    print(">>> Sensor Detected so stopped X jog adn Slowing Down")
 
 
 def PL_detect():
 
+    global ProbedLength
+
+    print(f">>> probed lenght = {ProbedLength}")
     print("========================================")
     print("MOVING X UNTIL Probed Lenght is detect")
     print("========================================")
@@ -103,7 +90,9 @@ def PL_detect():
 
     hal.Plus_speed("X", feedrate=300)
 
-    hal.wait_until_high(6)
+    hal.wait_until_high_hal()
+
+    print(f">>> probed lenght = {ProbedLength}")
 
     print(">>> X stopped at current position")
 
@@ -115,9 +104,12 @@ def PL_detect():
     print(f"X Position PL is {CurrentX}")
     print("========================================")
 
+    ProbedLength = CurrentX
+
     time.sleep(5)
 
     print(">>> Moving X to absolute position 0")
+    print(f">>> probed lenght = {ProbedLength}")
 
     hal.publish_absolute(x=0,feedrate=1000)
     time.sleep(1) 
@@ -129,6 +121,11 @@ def PL_detect():
 
 
 
+
+
 connect_hal()
 move_center()
 jog_detect()
+PL_detect()
+
+print(f">>> probed lenght = {ProbedLength}")

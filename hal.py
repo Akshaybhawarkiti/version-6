@@ -266,9 +266,9 @@ def connect2():
     print(f"Connecting to {SERIAL_PORT2}...")
 
     ser2 = serial.Serial(
-        port=SERIAL_PORT2,
-        baudrate=BAUD_RATE,
-        timeout=1
+        port="COM3",
+        baudrate=115200,
+        timeout=1 
     )
 
     time.sleep(2)
@@ -360,6 +360,28 @@ def only_idle():
 
                 if response.startswith("<Idle"):
                     print("Machine is IDLE.")
+                    return
+
+        time.sleep(0.1)
+
+
+
+def wait_until_idle2():
+    global ser2
+
+    while True:
+        ser2.write(b"?\n")
+
+        time.sleep(0.1)
+
+        while ser2.in_waiting:
+            response = ser2.readline().decode(errors="ignore").strip()
+
+            if response:
+                print("<<<", response)
+
+                if response.startswith("<Idle"):
+                    print("Chuck is IDLE.")
                     return
 
         time.sleep(0.1)
@@ -473,6 +495,34 @@ def block_jog():
     print(f">>> Sending: Jog stop x85")
     ser.write(b'\x85')
     time.sleep(0.5)
+
+
+
+def Plus_speed_hal2(axis, feedrate=1000):
+    global ser2
+
+    gcode = f"$J=G91 {axis}400 F{feedrate}"
+    print(f">>> Sending to Hal2: {gcode}")
+    ser2.write((gcode + "\n").encode())
+    time.sleep(0.05)
+
+
+def Mins_speed_hal2(axis, feedrate=1000):
+    global ser2
+
+    gcode = f"$J=G91 {axis}-400 F{feedrate}"
+    print(f">>> Sending to Hal2: {gcode}")
+    ser2.write((gcode + "\n").encode())
+    time.sleep(0.05)
+
+
+def block_jog_hal2():
+    global ser2
+
+    print(f">>> Sending: Jog stop x85 to Hal2")
+    ser2.write(b'\x85')
+    time.sleep(0.5)
+
 
 ####################################################################################################
 
@@ -729,13 +779,15 @@ def get_current_z_position():
 
 
 
-def wait_until_high(pin):
+def wait_until_high_hal():
 
     global ser
 
-    print(f">>> Waiting for digital input GPIO {pin} to become HIGH...")
+    print(">>> Waiting for switch...")
 
     while True:
+
+        print(">>> Sending: ?")
 
         ser.write(b"?")
 
@@ -747,22 +799,66 @@ def wait_until_high(pin):
                 errors="ignore"
             ).strip()
 
-            if "Pn:" in response:
+            print(f"<<< Received: {response}")
 
-                pin_part = response.split("Pn:")[1].split("|")[0]
+            if not response.startswith("<"):
+                continue
 
-                # GPIO input is HIGH / active
-                if str(pin) in pin_part:
+            # Switch NOT pressed
+            if "Pn:P" in response:
 
-                    print(f">>> GPIO {pin} is HIGH")
-                    print(">>> Stopping jog...")
+                print(">>> Pn:P detected - switch NOT pressed")
+                continue
 
-                    block_jog()
+            # Switch PRESSED
+            print(">>> Pn:P not detected - switch PRESSED")
+            print(">>> Stopping jog...")
 
-                    return
+            block_jog()
+
+            return
+
+
+
+
+def wait_until_high_hal2():
+
+    global ser2
+
+    print(">>> Waiting for switch...")
+
+    while True:
+
+        print(">>> Sending: ?")
+
+        ser2.write(b"?")
 
         time.sleep(0.05)
 
+        while ser2.in_waiting:
+
+            response = ser2.readline().decode(
+                errors="ignore"
+            ).strip()
+
+            print(f"<<< Received: {response}")
+
+            if not response.startswith("<"):
+                continue
+
+            # Switch NOT pressed
+            if "Pn:P" in response:
+
+                print(">>> Pn:P detected - switch NOT pressed")
+                continue
+
+            # Switch PRESSED
+            print(">>> Pn:P not detected - switch PRESSED")
+            print(">>> Stopping jog...")
+
+            block_jog_hal2()
+
+            return
 
         
 # search_connect()
