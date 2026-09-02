@@ -4,6 +4,7 @@ import sensor
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import make_interp_spline
+from matplotlib.colors import Normalize
 import csv
 
 ProbedLength = None
@@ -870,6 +871,20 @@ def plot_heat_gradient_3d():
         angles.append(i * ANGLE_STEP)
 
     # ======================================================
+    # REAL AXIAL POSITION OF EACH LAYER (mm)
+    # ======================================================
+    # Layers are stepped apart by the same creep distance used
+    # in data_collector() (Slag_Width / 4). Recomputed here from
+    # the shared Slag_Width global instead of duplicating state.
+
+    if Slag_Width is not None:
+        creep_distance = Slag_Width / 4
+    else:
+        creep_distance = 1.0
+
+    layer_positions = [i * creep_distance for i in range(4)]
+
+    # ======================================================
     # HEAT / GRADIENT MAP
     # ======================================================
 
@@ -877,75 +892,97 @@ def plot_heat_gradient_3d():
     print("PLOTTING HEAT / GRADIENT MAP")
     print("========================================")
 
-    plt.figure()
+    data_matrix = np.array(layers)
 
-    plt.imshow(
-        layers,
+    fig, ax = plt.subplots(figsize=(12, 4.5), dpi=110)
+
+    img = ax.imshow(
+        data_matrix,
         aspect="auto",
-        extent=[
-            0,
-            360,
-            4,
-            1
-        ],
-        origin="upper"
+        extent=[0, 360, layer_positions[-1], layer_positions[0]],
+        origin="upper",
+        cmap="inferno",
+        interpolation="bicubic"
     )
 
-    plt.colorbar(label="Sensor Value")
-
-    plt.xlabel("Rotation Angle (degrees)")
-    plt.ylabel("Layer")
-    plt.title("Cylinder Sensor Heat / Gradient Map")
-
-    plt.yticks(
-        [1, 2, 3, 4],
-        layer_names
+    ax.contour(
+        np.linspace(0, 360, data_matrix.shape[1]),
+        layer_positions,
+        data_matrix,
+        colors="white",
+        linewidths=0.6,
+        alpha=0.5,
+        levels=6
     )
 
-    plt.xticks(
-        range(0, 361, 30)
-    )
+    cbar = fig.colorbar(img, ax=ax, pad=0.02)
+    cbar.set_label("Sensor Distance (mm)")
+
+    ax.set_xlabel("Rotation Angle (degrees)")
+    ax.set_ylabel("Axial Position (mm)")
+    ax.set_title("Weld Seam Depth Map", fontsize=13, fontweight="bold")
+
+    ax.set_yticks(layer_positions)
+    ax.set_yticklabels(layer_names)
+
+    ax.set_xticks(range(0, 361, 30))
+
+    fig.tight_layout()
 
     plt.show()
 
     # ======================================================
-    # 3D MAP
+    # 3D CYLINDRICAL RECONSTRUCTION
     # ======================================================
+    # Each layer is unwrapped from (angle, sensor distance) polar
+    # coordinates into a real ring in 3D space (x = r*cos, y = r*sin)
+    # stacked at its axial position, instead of a straight line plot.
 
     print(">>> Creating 3D sensor map")
 
-    fig = plt.figure()
+    theta = np.radians(angles)
 
-    ax = fig.add_subplot(
-        111,
-        projection="3d"
+    # Close the wrap-around seam so each ring forms a full circle
+    theta_closed = np.append(theta, theta[0] + 2 * np.pi)
+
+    r_grid = np.array([
+        np.append(layer_data, layer_data[0])
+        for layer_data in layers
+    ])
+
+    theta_grid, z_grid = np.meshgrid(theta_closed, layer_positions)
+
+    x_grid = r_grid * np.cos(theta_grid)
+    y_grid = r_grid * np.sin(theta_grid)
+
+    fig = plt.figure(figsize=(9, 7), dpi=110)
+
+    ax = fig.add_subplot(111, projection="3d")
+
+    norm = Normalize(vmin=r_grid.min(), vmax=r_grid.max())
+
+    ax.plot_surface(
+        x_grid, y_grid, z_grid,
+        facecolors=plt.cm.inferno(norm(r_grid)),
+        rstride=1, cstride=1,
+        linewidth=0, antialiased=True, shade=False
     )
 
-    for layer_index, layer_data in enumerate(layers):
+    mappable = plt.cm.ScalarMappable(cmap="inferno", norm=norm)
+    mappable.set_array(r_grid)
 
-        x_values = angles
+    cbar = fig.colorbar(mappable, ax=ax, shrink=0.6, pad=0.1)
+    cbar.set_label("Sensor Distance (mm)")
 
-        y_values = [
-            layer_index + 1
-        ] * len(layer_data)
+    ax.set_xlabel("X (mm)")
+    ax.set_ylabel("Y (mm)")
+    ax.set_zlabel("Axial Position (mm)")
 
-        z_values = layer_data
+    ax.set_title("3D Cylindrical Surface Reconstruction", fontsize=13, fontweight="bold")
 
-        ax.plot(
-            x_values,
-            y_values,
-            z_values
-        )
+    ax.set_box_aspect((1, 1, 0.4))
 
-    ax.set_xlabel("Rotation Angle (degrees)")
-    ax.set_ylabel("Layer")
-    ax.set_zlabel("Sensor Value")
-
-    ax.set_title("3D Cylinder Sensor Map")
-
-    ax.set_yticks(
-        [1, 2, 3, 4]
-    )
+    ax.view_init(elev=25, azim=-60)
 
     plt.show()
 
@@ -957,7 +994,7 @@ def plot_heat_gradient_3d():
 
 
 connect_hal()
-move_center()
+# move_center()
 jog_detect()
 PL_detect()
 threshold_detect()
