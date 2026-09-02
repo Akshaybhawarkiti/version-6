@@ -84,6 +84,9 @@ def jog_detect():
 
         value = sensor.get_distance()
 
+        if value is None:
+            continue
+
         if value > 0.00:
 
             print(">>> SENSOR DETECTED")
@@ -179,6 +182,9 @@ def threshold_detect():
 
         value = sensor.get_distance()
 
+        if value is None:
+            continue
+
         current_time = time.time()
 
         if current_time >= next_ui_map_time:
@@ -255,6 +261,9 @@ def threshold_detect():
     while True:
 
         value = sensor.get_distance()
+
+        if value is None:
+            continue
 
         current_time = time.time()
 
@@ -948,7 +957,7 @@ def plot_heat_gradient_3d():
 
 
 connect_hal()
-# move_center()
+move_center()
 jog_detect()
 PL_detect()
 threshold_detect()
