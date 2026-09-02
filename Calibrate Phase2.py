@@ -3,7 +3,6 @@ import time
 import sensor
 import matplotlib.pyplot as plt
 import csv
-import math
 
 ProbedLength = None
 PositionData = []
@@ -82,9 +81,6 @@ def jog_detect():
     while True:
 
         value = sensor.get_distance()
-
-        if value is None:
-         continue
 
         if value > 0.00:
 
@@ -181,10 +177,6 @@ def threshold_detect():
 
         value = sensor.get_distance()
 
-        if value is None:
-                 continue
-
-        
         current_time = time.time()
 
         if current_time >= next_ui_map_time:
@@ -261,10 +253,6 @@ def threshold_detect():
     while True:
 
         value = sensor.get_distance()
-
-        if value is None:
-            continue
-        
 
         current_time = time.time()
 
@@ -349,10 +337,45 @@ def plot_ui_map():
         print(">>> UI_map is empty")
         return
 
+    # ======================================================
+    # FILTER ZERO VALUES
+    # ======================================================
+
+    print(">>> Checking UI_map for zero values...")
+
+    for i in range(len(UI_map)):
+
+        if UI_map[i] == 0.0:
+
+            if i > 0:
+
+                print(
+                    f">>> Zero value found at index {i}. "
+                    f"Replacing {UI_map[i]:.3f} "
+                    f"with previous value {UI_map[i - 1]:.3f}"
+                )
+
+                UI_map[i] = UI_map[i - 1]
+
+            else:
+
+                print(
+                    ">>> Zero value found at index 0. "
+                    "No previous value available."
+                )
+
+    # ======================================================
+    # CREATE X VALUES
+    # ======================================================
+
     x_values = []
 
     for i in range(len(UI_map)):
         x_values.append(i * 0.5)
+
+    # ======================================================
+    # PLOT
+    # ======================================================
 
     plt.figure()
 
@@ -369,7 +392,6 @@ def plot_ui_map():
     print("========================================")
     print("UI MAP PLOT COMPLETE")
     print("========================================")
-
 
 
 def data_collector():
@@ -713,8 +735,54 @@ def plot_heat_gradient_3d():
     global Layer4
 
     print("========================================")
-    print("PLOTTING HEAT / GRADIENT MAP")
+    print("FILTERING LAYER DATA")
     print("========================================")
+
+    # ======================================================
+    # FILTER ONLY THE FOUR LAYER ARRAYS
+    # DO NOT TOUCH ANGLE DATA
+    # ======================================================
+
+    layer_arrays = [
+        ("Layer1", Layer1),
+        ("Layer2", Layer2),
+        ("Layer3", Layer3),
+        ("Layer4", Layer4)
+    ]
+
+    for layer_name, layer_data in layer_arrays:
+
+        for i in range(len(layer_data)):
+
+            # ONLY replace an ABSOLUTE numeric zero
+            if layer_data[i] == 0.0:
+
+                if i > 0:
+
+                    previous_value = layer_data[i - 1]
+
+                    print(
+                        f">>> {layer_name}: "
+                        f"Zero found at index {i}, "
+                        f"replacing with previous value "
+                        f"{previous_value:.4f}"
+                    )
+
+                    layer_data[i] = previous_value
+
+                else:
+
+                    print(
+                        f">>> {layer_name}: "
+                        f"Zero found at index 0. "
+                        f"No previous layer value available."
+                    )
+
+    print(">>> Layer zero filtering complete")
+
+    # ======================================================
+    # CHECK DATA
+    # ======================================================
 
     if len(Layer1) == 0:
         print(">>> Layer1 is empty")
@@ -738,6 +806,10 @@ def plot_heat_gradient_3d():
         "Layer 4"
     ]
 
+    # ======================================================
+    # CREATE ANGLE VALUES
+    # ======================================================
+
     angles = []
 
     for i in range(len(Layer1)):
@@ -747,7 +819,9 @@ def plot_heat_gradient_3d():
     # HEAT / GRADIENT MAP
     # ======================================================
 
-    print(">>> Creating heat / gradient map")
+    print("========================================")
+    print("PLOTTING HEAT / GRADIENT MAP")
+    print("========================================")
 
     plt.figure()
 
@@ -825,10 +899,11 @@ def plot_heat_gradient_3d():
     print("HEAT / GRADIENT MAP COMPLETE")
     print("3D MAP COMPLETE")
     print("========================================")
+    
 
 
 connect_hal()
-move_center()
+# move_center()
 jog_detect()
 PL_detect()
 threshold_detect()
