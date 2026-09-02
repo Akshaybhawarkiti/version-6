@@ -2,6 +2,8 @@ import hal
 import time
 import sensor
 import matplotlib.pyplot as plt
+import numpy as np
+from scipy.interpolate import make_interp_spline
 import csv
 
 ProbedLength = None
@@ -377,15 +379,58 @@ def plot_ui_map():
     # PLOT
     # ======================================================
 
-    plt.figure()
+    fig, ax = plt.subplots(figsize=(9, 5), dpi=110)
 
-    plt.plot(x_values, UI_map, marker="o")
+    # Smooth curve through the recorded samples (visual only,
+    # underlying data/markers below are the real readings)
+    if len(x_values) >= 4:
 
-    plt.xlabel("X Distance (mm)")
-    plt.ylabel("Sensor Value (mm)")
-    plt.title("Sensor UI Map")
+        spline = make_interp_spline(x_values, UI_map, k=3)
 
-    plt.grid(True)
+        x_smooth = np.linspace(x_values[0], x_values[-1], len(x_values) * 20)
+        y_smooth = spline(x_smooth)
+
+        ax.plot(x_smooth, y_smooth, color="#1f77b4", linewidth=2, zorder=2)
+
+    else:
+
+        ax.plot(x_values, UI_map, color="#1f77b4", linewidth=2, zorder=2)
+
+    ax.plot(
+        x_values, UI_map,
+        marker="o", markersize=5, linestyle="None",
+        color="#1f77b4", markerfacecolor="white", markeredgewidth=1.4,
+        zorder=3, label="Sensor Reading"
+    )
+
+    # ======================================================
+    # CONNECT LAST READING DOWN TO THE LIMIT VALUE
+    # ======================================================
+    # The sample that actually crossed the limit (slag end) is not
+    # captured in UI_map since it only records on a fixed interval,
+    # so the line otherwise stops short. Draw the missing segment.
+
+    if LimitValue is not None:
+
+        ax.plot(
+            [x_values[-1], x_values[-1]],
+            [UI_map[-1], LimitValue],
+            color="#1f77b4", linewidth=2, linestyle="--", zorder=2
+        )
+
+        ax.axhline(
+            LimitValue, color="#d62728", linestyle="--", linewidth=1.3,
+            zorder=1, label=f"Limit Value ({LimitValue:.2f} mm)"
+        )
+
+    ax.set_xlabel("X Distance (mm)")
+    ax.set_ylabel("Sensor Value (mm)")
+    ax.set_title("Sensor UI Map", fontsize=13, fontweight="bold")
+
+    ax.grid(True, alpha=0.4)
+    ax.legend(loc="best", frameon=True)
+
+    fig.tight_layout()
 
     plt.show()
 
